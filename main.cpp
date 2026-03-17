@@ -3,6 +3,7 @@
 #include <fstream>
 #include <vector>
 #include <cstdlib>
+#include "include/sqlite3.h"
 
 
 class PasswordManager {
@@ -13,13 +14,12 @@ private:
 public:
     void add_password(std::string service, std::string login, std::string password) {
         std::ofstream passwords_file;
-
+        passwords_file.open(path, std::ios::app);
         if (!passwords_file.is_open()) {
             std::cerr << "Error opening file.\n";
             return;
         }
 
-        passwords_file.open(path, std::ios::app);
         passwords_file << service << ' ' << login << ' ' << password << '\n';
         passwords_file.close();
     }
@@ -28,12 +28,12 @@ public:
     void show_passwords() {
         std::ifstream passwords_file;
         std::string line;
+        passwords_file.open(path, std::ios::in);
         if (!passwords_file.is_open()) {
             std::cerr << "Error opening file.\n";
             return;
         }
 
-        passwords_file.open(path, std::ios::in);
         while (std::getline(passwords_file, line)) { 
             std::cout << line << std::endl;
         }
@@ -47,12 +47,12 @@ public:
         std::vector<std::string> res;
         std::ifstream passwords_file;
         std::string line;
+        passwords_file.open(path, std::ios::in);
         if (!passwords_file.is_open()) {
             std::cerr << "Error opening file.\n";
             return res;
         }
 
-        passwords_file.open(path, std::ios::in);
         while (std::getline(passwords_file, line)) {
             if (line.substr(0, line.find(' ')) == name)
                 res.push_back(line);
