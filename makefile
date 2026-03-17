@@ -6,6 +6,7 @@ SRC = src/main.cpp
 OUT = build/manager
 
 all:
+	mkdir -p build
 	$(CXX) $(CXXFLAGS) $(SRC) -o $(OUT) $(LIBS)
 
 run: all
