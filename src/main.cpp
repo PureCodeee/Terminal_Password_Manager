@@ -1,6 +1,5 @@
 #include <string>
 #include <iostream>
-#include <fstream>
 #include <vector>
 #include <cstdlib>
 #include <stdexcept>
@@ -47,7 +46,7 @@ public:
                 sqlite3_finalize(stmt);
                 throw std::runtime_error("Binding error: " + err);
             }
-    }
+        }
 
         if (sqlite3_step(stmt) != SQLITE_DONE) {
             std::string err = sqlite3_errmsg(db);
@@ -81,21 +80,53 @@ public:
         return results;
     }
 
+
+    std::vector<std::vector<std::string>> query(const std::string& sql, const std::vector<std::string>& params) {
+        std::vector<std::vector<std::string>> res;
+        sqlite3_stmt* stmt;
+        if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
+            std::string err = sqlite3_errmsg(db);
+            throw std::runtime_error("Preparation error: " + err);
+        }
+
+        for (size_t i = 0; i < params.size(); ++i) {
+            if (sqlite3_bind_text(stmt, static_cast<int>(i + 1), params[i].c_str(), -1, SQLITE_TRANSIENT) != SQLITE_OK) {
+                std::string err = sqlite3_errmsg(db);
+                sqlite3_finalize(stmt);
+                throw std::runtime_error("Binding error: " + err);
+            }
+        }
+        int columns = sqlite3_column_count(stmt);
+        while (sqlite3_step(stmt) == SQLITE_ROW) {
+            std::vector<std::string> row;
+            for (int i = 0; i < columns; i++) {
+                const char* col = reinterpret_cast<const char*>(sqlite3_column_text(stmt, i));
+                row.push_back(col ? col : "");
+            }
+            res.push_back(row);
+        }
+
+        sqlite3_finalize(stmt);
+        return res;
+    }
+
+
     DataBase(const DataBase&) = delete;
     DataBase& operator=(const DataBase&) = delete;
 };
 
 
-
+/*
+    API password manager class
+    provides methods to add, show, find and delete passwords in the database
+*/
 class PasswordManager {
 private:
-    std::string path = "passwords.txt";
-    std::string temp_filename = "temp.txt";
     DataBase& db;
 public:
-
     PasswordManager(DataBase& database) :
     db(database) {}
+
 
     void add_password(const std::string& service,
                       const std::string& login,
@@ -111,57 +142,26 @@ public:
 
     void show_passwords() {
         auto res = db.query("SELECT service, login, password FROM passwords");
-            std::for_each(res.begin(), res.end(), [](const std::vector<std::string>& row) {
-                std::cout << "Service: " << row[0] << " | Login: " << row[1] << " | Password: " << row[2] << '\n';
-            });
+        std::for_each(res.begin(), res.end(), [](const std::vector<std::string>& row) {
+            std::cout << "Service: " << row[0] << " | Login: " << row[1] << " | Password: " << row[2] << '\n';
+        });
     }
 
 
-    std::vector<std::string> find_password(std::string name) {
-        std::vector<std::string> res;
-        std::ifstream passwords_file;
-        std::string line;
-        passwords_file.open(path, std::ios::in);
-        if (!passwords_file.is_open()) {
-            std::cerr << "Error opening file.\n";
-            return res;
-        }
-
-        while (std::getline(passwords_file, line)) {
-            if (line.substr(0, line.find(' ')) == name)
-                res.push_back(line);
-            }
-        passwords_file.close();
-
+    std::vector<std::vector<std::string>> find_password(const std::string& service) {
+        std::vector<std::vector<std::string>> res;
+        res = db.query("SELECT service, login, password FROM passwords WHERE service = ?", {service});
         return res;
     }
 
-    void delete_password(std::string line_to_delete) {
-        std::ofstream file_o(temp_filename);
-        std::ifstream file_i(path);
 
-        if (!file_i.is_open() || !file_o.is_open()) {
-            std::cerr << "Error opening file.\n";
-            return;
-        }
-
-        std::string line;
-        while (std::getline(file_i, line)) {
-            if (line != line_to_delete) {
-                file_o << line << '\n';
-            }
-        }
-        file_i.close();
-        file_o.close();
-
-        std::remove(path.c_str());
-        std::rename(temp_filename.c_str(), path.c_str());
-        std::cout << "Password has been deleted.\n";
+    void delete_password(const std::string& line_to_delete) {
+        db.execute("DELETE FROM passwords WHERE service = ?", {line_to_delete});
     }
 
 };
 
-
+// menu
 void show_menu() {
     std::cout << "========== Terminal Password Manager ==========\n"
             << "1. Add password\n"
@@ -206,12 +206,12 @@ int main() {
             std::string service_name;
             std::cout << "Enter service name: ";
             std::cin >> service_name;
-            std::vector<std::string> found_passwords = manager.find_password(service_name);
+            std::vector<std::vector<std::string>> found_passwords = manager.find_password(service_name);
             if (!found_passwords.empty()) {
                 std::cout << "============== Founded passwords ==============\n";
-                for (const std::string &s : found_passwords) {
-                    std::cout << s << '\n';
-                }
+            std::for_each(found_passwords.begin(), found_passwords.end(), [](const std::vector<std::string>& row) {
+                std::cout << "Service: " << row[0] << " | Login: " << row[1] << " | Password: " << row[2] << '\n';
+            });
                 std::cout << "===============================================\n";
             }
             else {
