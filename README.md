@@ -13,8 +13,7 @@ or
 
 Compile (gcc):
 
-g++ src/main.cpp -std=c++20 -o manager -lsqlite3
-g++ src/main.cpp -std=c++20 -o manager -lsqlite3
+g++ -std=c++17 -Wall -Iinclude src/main.cpp src/database.cpp src/password_manager.cpp -o build/manager -lsqlite3
 
 Run:
 
