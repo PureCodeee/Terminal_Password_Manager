@@ -1,8 +1,8 @@
 CXX = g++
-CXXFLAGS = -std=c++17 -Wall
+CXXFLAGS = -std=c++17 -Wall -Iinclude
 LIBS = -lsqlite3
 
-SRC = src/main.cpp
+SRC = src/main.cpp src/database.cpp src/password_manager.cpp
 OUT = build/manager
 
 all:
